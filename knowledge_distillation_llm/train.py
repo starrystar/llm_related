@@ -13,10 +13,10 @@ class KGTrainer(Trainer):
     
     def __init__(
         self,
-        model = None,
+        model = None, # 学生模型
         teacher_model = None,
-        if_use_entropy = False,
-        args = None,
+        if_use_entropy = False, # 控制是否加上交叉熵损失，md有写
+        args = None, # 下面这些参数都是原始Trainer中的一些参数
         data_collator = None, 
         train_dataset = None,
         eval_dataset = None,
@@ -45,16 +45,19 @@ class KGTrainer(Trainer):
         
     
     def compute_loss(self, model, inputs, return_outputs=False):
+        # 只需要重写计算损失的函数就行
         
-        outputs = model(**inputs)
-        with torch.no_grad():
+        outputs = model(**inputs) # 学生模型
+        with torch.no_grad(): # 教师模型不更新参数，这里就不让反向传播
             teacher_outputs = self.teacher_model(**inputs)
         
-        loss = outputs.loss
-        logits = outputs.logits
+        loss = outputs.loss # 学生模型的交叉熵损失
+        logits = outputs.logits # 学生模型输出的概率分布
         teacher_logits = teacher_outputs.logits
         
         # 如果教师模型和学生模型输出形状不匹配，对学生模型进行padding或对教师模型进行截断
+        # 评论区有说，截断感觉不合适，可能mlp？
+        # 3B和 0.5B输出形状一样，但7B不一样
         if logits.shape[-1] != teacher_logits.shape[-1]:
             # gap = teacher_logits.shape[-1] - logits.shape[-1]
             # if gap > 0:
@@ -64,7 +67,7 @@ class KGTrainer(Trainer):
             teacher_logits = teacher_logits[:, :, :logits.shape[-1]]
         
         labels = inputs['labels']
-        kl = compute_fkl(logits, teacher_logits, labels, padding_id=-100, temp=2.0)
+        kl = compute_fkl(logits, teacher_logits, labels, padding_id=-100, temp=2.0) # transformers里面的哪些模型，在处理数据的时候默认不计算-100的损失
         
         if self.if_use_entropy:
             loss_total = 0.5 * kl + 0.5 * loss

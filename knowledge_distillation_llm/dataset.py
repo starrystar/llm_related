@@ -43,10 +43,11 @@ class SFTDataset(Dataset):
         answer_input_ids = self.tokenizer.encode(answer)
         
         input_ids = prompt_input_ids + answer_input_ids
-        labels = [-100] * len(prompt_input_ids) + answer_input_ids
+        labels = [-100] * len(prompt_input_ids) + answer_input_ids # 不对输入文字计算损失，所以填充成了-100
         attention_mask = [1] * len(input_ids)
         text_len = len(input_ids)
         
+        # 长度超出的话截断，不够的话填充
         if text_len > self.max_seq_len:
             input_ids = input_ids[:self.max_seq_len]
             labels = labels[:self.max_seq_len]

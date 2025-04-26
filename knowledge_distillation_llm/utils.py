@@ -10,15 +10,15 @@ def compute_fkl(
         temp = 1.0, 
         
     ):
-        logits = logits / temp
+        logits = logits / temp # 除以温度系数，在知识蒸馏很常见
         teacher_logits = teacher_logits / temp
 
-        log_probs = torch.log_softmax(logits, -1, dtype=torch.float32)
-        teacher_probs = torch.softmax(teacher_logits, -1, dtype=torch.float32)
-        teacher_log_probs = torch.log_softmax(teacher_logits, -1, dtype=torch.float32)
-        kl = (teacher_probs * (teacher_log_probs - log_probs)) 
-        kl = kl.sum(-1)
-        if reduction == "sum":
+        log_probs = torch.log_softmax(logits, -1, dtype=torch.float32) # log q(x)
+        teacher_probs = torch.softmax(teacher_logits, -1, dtype=torch.float32) # p(x)
+        teacher_log_probs = torch.log_softmax(teacher_logits, -1, dtype=torch.float32) # log p(x)
+        kl = (teacher_probs * (teacher_log_probs - log_probs)) # p(x) * [log p(x) - log q(x)]
+        kl = kl.sum(-1) # 对应积分，在最后一个维度求和
+        if reduction == "sum": # 只关注模型生成的部分，输入的部分及padding部分的分布需要mask掉
             pad_mask = target.eq(padding_id)
             kl = kl.masked_fill_(pad_mask, 0.0)
             kl = kl.sum()
